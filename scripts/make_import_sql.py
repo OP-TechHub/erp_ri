@@ -121,6 +121,7 @@ if notes:
     for x in notes: w("--   * " + x)
 w("")
 w("begin;")
+w("set local search_path = round_island, public;   -- the app lives in its own schema on the shared Supabase project")
 w("create temp table _cfg as select 'YOUR_LOGIN_EMAIL'::text as email;   -- EDIT: the e-mail you created under Authentication -> Users")
 w("do $$ begin if not exists (select 1 from auth.users u join _cfg c on lower(u.email) = lower(c.email)) then raise exception 'No Supabase user with that e-mail. Create the user first and edit the EDIT line.'; end if; end $$;")
 w("")
@@ -163,6 +164,11 @@ w("insert into trade_documents (id, company_id, kind, doc_date, ref, party_id, p
 w(",\n".join(dv) + ";")
 w("insert into trade_lines (id, document_id, company_id, line_no, category_id, category, description, qty, unit_price, amount, tax) values")
 w(",\n".join(lv) + ";")
+# credit / return notes linked to an invoice: the old app points at a row id, the new one at the document
+for dd in docs:
+    if dd["against"] and dd["t"] in ("Sales Return", "Purchase Return"):
+        if dd["against"] in rowdoc: w("update trade_documents set against_id = %s where id = %s;" % (q(rowdoc[dd["against"]]), q(dd["id"])))
+        else: notes.append(f"{dd['t']} {dd['ref'] or '(no ref)'} pointed at a deleted entry - left unlinked (stays as credit on account)")
 w("")
 pv = []
 for p in py:

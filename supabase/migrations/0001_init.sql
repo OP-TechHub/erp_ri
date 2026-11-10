@@ -1,8 +1,11 @@
 -- Round Island ERP – initial schema (Supabase / Postgres)
--- Run with `supabase db push`, or paste into the Supabase SQL editor.
+-- Paste into the Supabase SQL editor (migrations 0001, 0002, 0003 in that order).
 -- Money columns are numeric(14,2). Every business table carries company_id and is protected by RLS.
+-- The Supabase project is shared with other apps, so everything lives in its own schema "round_island".
+-- Add round_island to Project Settings -> API -> Exposed schemas after running this.
 
-create extension if not exists pgcrypto;
+create schema if not exists round_island;
+set search_path = round_island, public;
 
 -- ---------- enums ----------
 create type member_role   as enum ('owner', 'accountant', 'sales');
@@ -41,11 +44,11 @@ create table company_members (
 
 -- helper functions used by every policy (security definer so they bypass RLS on company_members)
 create or replace function is_member(cid uuid) returns boolean
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = round_island, public as $$
   select exists (select 1 from company_members where company_id = cid and user_id = auth.uid());
 $$;
 create or replace function has_role(cid uuid, roles member_role[]) returns boolean
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = round_island, public as $$
   select exists (select 1 from company_members where company_id = cid and user_id = auth.uid() and role = any(roles));
 $$;
 
@@ -231,20 +234,21 @@ create or replace function touch_updated_at() returns trigger language plpgsql a
 create trigger trade_documents_touch before update on trade_documents for each row execute function touch_updated_at();
 
 -- ---------- storage buckets (private) ----------
-insert into storage.buckets (id, name, public) values ('deposit-slips', 'deposit-slips', false), ('company-assets', 'company-assets', false)
+-- Buckets and storage policies are project-wide (shared with other apps), hence the "ri-" / "ri_" prefixes.
+insert into storage.buckets (id, name, public) values ('ri-deposit-slips', 'ri-deposit-slips', false), ('ri-company-assets', 'ri-company-assets', false)
 on conflict (id) do nothing;
 -- object paths are "<company_id>/<file>"; only accounts staff may touch deposit slips, all members may read the logo
-create policy slips_all on storage.objects for all
-  using (bucket_id = 'deposit-slips' and has_role(((storage.foldername(name))[1])::uuid, array['owner','accountant']::member_role[]))
-  with check (bucket_id = 'deposit-slips' and has_role(((storage.foldername(name))[1])::uuid, array['owner','accountant']::member_role[]));
-create policy assets_read on storage.objects for select using (bucket_id = 'company-assets' and is_member(((storage.foldername(name))[1])::uuid));
-create policy assets_write on storage.objects for all
-  using (bucket_id = 'company-assets' and has_role(((storage.foldername(name))[1])::uuid, array['owner']::member_role[]))
-  with check (bucket_id = 'company-assets' and has_role(((storage.foldername(name))[1])::uuid, array['owner']::member_role[]));
+create policy ri_slips_all on storage.objects for all
+  using (bucket_id = 'ri-deposit-slips' and round_island.has_role(((storage.foldername(name))[1])::uuid, array['owner','accountant']::round_island.member_role[]))
+  with check (bucket_id = 'ri-deposit-slips' and round_island.has_role(((storage.foldername(name))[1])::uuid, array['owner','accountant']::round_island.member_role[]));
+create policy ri_assets_read on storage.objects for select using (bucket_id = 'ri-company-assets' and round_island.is_member(((storage.foldername(name))[1])::uuid));
+create policy ri_assets_write on storage.objects for all
+  using (bucket_id = 'ri-company-assets' and round_island.has_role(((storage.foldername(name))[1])::uuid, array['owner']::round_island.member_role[]))
+  with check (bucket_id = 'ri-company-assets' and round_island.has_role(((storage.foldername(name))[1])::uuid, array['owner']::round_island.member_role[]));
 
 -- ---------- bootstrap: create a company and make the caller its owner ----------
 create or replace function create_company(p_name text, p_start date, p_end date) returns uuid
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = round_island, public as $$
 declare cid uuid;
 begin
   if auth.uid() is null then raise exception 'not signed in'; end if;
@@ -264,3 +268,16 @@ begin
   ) v(g, n);
   return cid;
 end $$;
+
+-- ---------- API access (the schema is new, so nothing is granted by default) ----------
+-- Only signed-in users get in; RLS decides which rows they see. anon gets nothing.
+grant usage on schema round_island to authenticated, service_role;
+grant select, insert, update, delete on all tables in schema round_island to authenticated, service_role;
+grant usage, select on all sequences in schema round_island to authenticated, service_role;
+grant execute on all functions in schema round_island to authenticated, service_role;
+alter default privileges in schema round_island grant select, insert, update, delete on tables to authenticated, service_role;
+alter default privileges in schema round_island grant usage, select on sequences to authenticated, service_role;
+alter default privileges in schema round_island grant execute on functions to authenticated, service_role;
+-- Functions are executable by PUBLIC by default. anon has no USAGE on the schema, so it can't reach them anyway;
+-- the revoke is belt and braces for the functions that exist now.
+revoke execute on all functions in schema round_island from public, anon;

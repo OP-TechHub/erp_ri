@@ -1,7 +1,10 @@
--- Call once per company:  select seed_products('<company uuid>');
+-- Call once per company:  select round_island.seed_products('<company uuid>');
 -- Loads the 12-item product list with default rates; each product becomes a "sales" category.
+-- Not needed for Round Island itself: supabase/data/import_data.sql already loads its products.
+set search_path = round_island, public;
+
 create or replace function seed_products(cid uuid) returns void
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = round_island, public as $$
 declare r record; c uuid;
 begin
   if not has_role(cid, array['owner','accountant']::member_role[]) then raise exception 'not allowed'; end if;

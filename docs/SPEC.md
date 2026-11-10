@@ -52,7 +52,7 @@ When this document and the reference app disagree, **the reference app wins** �
 
 ## 5. Importers (keep all of them)
 CSV or xlsx; heading row auto-detected within the first 25 rows; column aliases (see `ALIAS` in the reference); dates day-first by default with a month-first switch and an automatic guess; duplicate skip key = date+type+ref+party+amount; option to create unknown customers/suppliers/categories; preview with counts, errors per line, then import.
-Files used so far: sales (`Date, Type, Invoice No, Customer, Description, Category, Amount, Tax, Qty, Unit Price, Discount %, Customer Details, Invoice Type`), purchases, receipts, **invoice-wise receipts** (set off while importing), **set-off from file** (`RI_Setoff.xlsx`), supplier payments (`RI_Payments.csv`; replaces earlier supplier payments, category "Ingridients"), products (`name, category, rate`). "Delete by party & amount", "Delete receipts by date", "Delete today's entries" are bulk tools with a confirmation listing what will be removed.
+Files used so far: sales (`Date, Type, Invoice No, Customer, Description, Category, Amount, Tax, Qty, Unit Price, Discount %, Customer Details, Invoice Type`), purchases, receipts, **invoice-wise receipts** (set off while importing), **set-off from file** (`RI_Setoff.xlsx`), supplier payments (`RI_Payments.csv`; replaces earlier supplier payments, category "Ingridients"), products (`name, category, rate`). "Delete by party & amount" (match on total incl. tax, excl. tax or either) and "Delete receipts / payments by date" (receipt date or date entered, optional ref prefix) are bulk tools with a confirmation listing what will be removed.
 
 ## 6. Migrating the existing data
 Done with a generator, already run for the 2026-11-02 backup:
@@ -69,3 +69,13 @@ Conversion rules (all listed in the SQL header when they happen):
 - The old app applies on-account receipts and unlinked credits oldest-first when it shows party balances; the new accounting module must do the same (Phase 3), so the open-invoice sum straight from `open_documents` is *before* that step.
 
 **Acceptance check after import:** document/line counts, Σ sales, Σ tax, Σ purchases, Σ receipts, Σ supplier payments, Σ expenses match the header (cents of rounding aside); then compare the P&L accumulated column and customer / supplier balances with the old app for the same month.
+
+## 7. Decisions for the web version (where it differs from, or adds to, the reference)
+- **Invoice numbers:** next number = `INV` + (highest `INVnnnnn` sale number + 1), at least 5 digits – `next_invoice_no()`, exactly like `invNext`. The old plain numbers (…1531) are not counted, so the new series starts at INV00001 (owner's decision, 2026-11-02).
+- **Edit / delete reconciliation** (`reconcileInvoice`): changing an invoice's party or type moves its set-offs back on account and unlinks its credit notes; lowering its total below what is set off cuts allocations from the newest receipt back, then unlinks the newest notes; a credit note that becomes larger than its invoice's balance is unlinked. Done in the database (`reconcile_document()`, trigger on party/type change); a check at commit refuses anything that would still over-settle a document.
+- **Parties are required** on every sale/purchase document and on receipts/supplier payments; unknown names are created as customers/suppliers (invoice form offers it, importers do it). The reference allowed free-text names.
+- **Renaming** a party or category renames it on all past entries (as in the reference) – done by database triggers.
+- **Sales staff** see only their own sale invoices, the customer list, sales categories and products; they can create and edit (not delete) their own invoices.
+- **Live / Demo mode is dropped**; Vercel preview deployments are used for trying things out.
+- **Outstanding Statement** keeps the reference's own method (all credits pooled oldest-first, ignoring set-offs; ageing 0-30 / 31-60 / 61-90 / >90) – it can differ from the Outstanding Report, as before.
+- Open question for the owner: should **Sample / FOC** invoices be zero-value? Until decided they are recorded at the entered price.

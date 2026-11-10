@@ -10,13 +10,17 @@ We are rebuilding a working single-file browser app as a proper multi-user web a
 ## Stack (do not change without asking)
 - Next.js (App Router) + TypeScript (strict) + Tailwind CSS (shadcn/ui for components)
 - Supabase: Postgres, Auth, Storage, Row Level Security. Client via `@supabase/ssr`.
+  - **Shared project** (`fkyttnebqkrmntjwddrc`, also used by other apps): everything lives in schema **`round_island`** (`src/lib/supabase/schema.ts`). Every migration starts with `set search_path = round_island, public;`. Storage buckets are `ri-deposit-slips` / `ri-company-assets` and storage policies are prefixed `ri_`.
+  - `auth.users` is shared with the other apps: **never delete auth users** and never change project-wide auth settings (sign-up etc.). A login without a `company_members` row simply gets the "No access" screen.
+  - The user applies SQL and runs git themselves – Claude writes the files and gives step-by-step directions.
 - Hosting: Vercel. Package manager: npm.
 - Validation: zod. Tests: Vitest for accounting logic, Playwright for key flows.
 - File import: `exceljs` (xlsx) and `papaparse` (csv).
 
 ## Commands
 - `npm run dev` – local dev server · `npm run build` · `npm run lint` · `npm run typecheck` · `npm test`
-- `npx supabase start` / `npx supabase db push` / `npx supabase gen types typescript --local > src/lib/database.types.ts`
+- Types: `npx supabase gen types typescript --project-id fkyttnebqkrmntjwddrc --schema round_island > src/lib/database.types.ts` (needs `npx supabase login`)
+- Next.js 16: middleware is `src/proxy.ts`; Cache Components is on, so anything reading the session sits inside `<Suspense>`. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
 - Run lint, typecheck and tests before saying a task is finished.
 
 ## Layout
@@ -30,6 +34,8 @@ src/lib/supabase/               server.ts, client.ts, middleware helper
 src/lib/import/                 csv/xlsx importers (sales, purchases, receipts, payments, set-off, products)
 src/components/                 UI;  src/components/invoice/InvoicePrint.tsx = printable invoice (A4)
 supabase/migrations/            SQL, applied in order. Never edit an applied migration – add a new one.
+                                0003_hardening.sql: sales-role RLS, set-off/credit-note checks (deferred to commit),
+                                reconcile_document(), next_invoice_no(), audit_log, party_totals / party_credits views
 ```
 
 ## Non-negotiable rules

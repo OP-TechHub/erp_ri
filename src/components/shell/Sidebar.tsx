@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV_SECTIONS } from "./nav";
 
-export function Sidebar({ companyName }: { companyName: string }) {
+export function Sidebar({ companyName, footer }: { companyName: string; footer?: ReactNode }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -47,6 +47,7 @@ export function Sidebar({ companyName }: { companyName: string }) {
             })}
           </ul>
         ))}
+        {footer && <div className="border-t">{footer}</div>}
       </nav>
     </>
   );
