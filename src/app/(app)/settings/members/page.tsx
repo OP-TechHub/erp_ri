@@ -1,6 +1,5 @@
 import { requireOwner } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { AddMemberForm, MemberRow } from "./MemberForms";
 
 type Member = { user_id: string; email: string; role: string };
 
@@ -16,23 +15,27 @@ export default async function MembersPage() {
       <div>
         <h1 className="text-xl font-semibold">Members</h1>
         <p className="text-sm text-muted-foreground">
-          Owner: everything. Accountant: all accounting screens. Sales: only the invoicing screen, and only their
-          own invoices. To add someone, first create their login in Supabase (Authentication → Users), then add the
-          e-mail here.
+          Access is managed in Cloud Kitchen → Staff and follows it automatically: admin → owner, accountant →
+          accountant, supply chain → purchasing, sales → cashier, manager / executive → viewer. Kitchen and dispatch
+          staff have no ERP access.
         </p>
       </div>
-      <AddMemberForm />
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b text-left text-muted-foreground">
             <th className="py-2 pr-4 font-medium">E-mail</th>
-            <th className="py-2 pr-4 font-medium">Role</th>
-            <th className="py-2 font-medium" />
+            <th className="py-2 font-medium">ERP role</th>
           </tr>
         </thead>
         <tbody>
           {members.map((m) => (
-            <MemberRow key={m.user_id + m.role} userId={m.user_id} email={m.email} role={m.role} isSelf={m.user_id === userId} />
+            <tr key={m.user_id} className="border-b">
+              <td className="py-2 pr-4">
+                {m.email}
+                {m.user_id === userId && <span className="ml-1 text-muted-foreground">(you)</span>}
+              </td>
+              <td className="py-2 capitalize">{m.role}</td>
+            </tr>
           ))}
         </tbody>
       </table>

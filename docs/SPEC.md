@@ -46,9 +46,13 @@ When this document and the reference app disagree, **the reference app wins** �
 ## 4. Roles and access
 | Role | Can do |
 |---|---|
-| owner | everything, manage members, settings |
-| accountant | all accounting screens, imports, reports |
-| sales | only `/invoicing`: create/print/edit **their own** sale invoices (with the product list, customers, next number). No access to payments, P&L, balances or other users' data. |
+| owner | everything, settings (CK admin) |
+| accountant | all accounting screens, imports, reports (CK accountant) |
+| purchasing | purchasing after PO approved: funding, buying, receipts handover, bills (CK supply chain) – screens in Stage B |
+| cashier | customer receipts and the daily cash-up (CK sales / front office) – screens in Stage B |
+| viewer | reports only (CK manager / executive) – screens in Stage B |
+
+Access is not managed in the ERP: it follows Cloud Kitchen → Staff (approved, Cloud Kitchen workspace) through a trigger. Sales invoices are raised in Cloud Kitchen, not in the ERP (no ERP invoicing screen).
 
 ## 5. Importers (keep all of them)
 CSV or xlsx; heading row auto-detected within the first 25 rows; column aliases (see `ALIAS` in the reference); dates day-first by default with a month-first switch and an automatic guess; duplicate skip key = date+type+ref+party+amount; option to create unknown customers/suppliers/categories; preview with counts, errors per line, then import.
@@ -82,7 +86,7 @@ Conversion rules (all listed in the SQL header when they happen):
 - Open question for the owner: should **Sample / FOC** invoices be zero-value? Until decided they are recorded at the entered price.
 
 ## 8. Items, units and recipe costing (added 2026-11-10 – not in the reference app)
-Source: `Round_Island_Monthly_Tracker` (Round Island part only). Migration `0005_items_costing.sql`, data `supabase/seed/items_ingredients_2026-11.sql`.
+Source: `Round_Island_Monthly_Tracker` (Round Island part only). **Since 2026-11-10 Cloud Kitchen owns items, ingredients and recipes** (`cloud_kitchen/supabase/items_import.sql`: LO_RI-xxxxx selling codes, last CK prices, BOM); the ERP reads them (see the back-office plan). Ingredient codes, if ever needed: `LO_RI_ING-xxxxx`.
 - **Item master:** code `LO_RI-00001` … (16 items: the tracker's 14 in its order, then LO_RI-00015 Barra Slidder and LO_RI-00016 Salt and Pepper), name, category group (Marinated Fillets / Convenience Range), pack size as printed ("320g (8pc)"), pack weight in grams, **pack price** (`rate`) and an optional **per-kg price** (`kg_rate`). Starting pack prices and sizes = the tracker's Product Master, except the two Collagen Soups, which are served in a cup: **150g cup, Rs 450** each (recipe still the tracker's 500ml one for now); 00015/00016 keep their old rates; the owner corrects them in Settings. Each item is also a sales category named "code – name" (as `prodLabel` in the reference).
 - **Fixed or free price (owner, 2026-11-10):** every sale line is either **fixed** – packs at the item master's pack price and pack size, price not editable on the line – or **free** – quantity and price typed in, in packs or kg (bulk orders at a negotiated price; the per-kg price, if set, is only a suggestion). `price_mode` + `unit` on the line (migration 0006); rule in `src/lib/accounting/invoice.ts`. The same item can be sold either way. The invoice print column is **QTY** showing the unit ("10 packs", "3.500 kg"); unit price is per that unit.
 - **Ingredients** (raw materials and packaging, unit kg / unit / l) have **no price list and no price is shown on the ingredient screens** – prices change with every purchase. Finance costing uses the price entered on each purchase. A purchase line names the ingredient, the quantity in its unit and the amount paid (excl. tax).

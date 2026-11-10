@@ -2,7 +2,11 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
-export type Role = "owner" | "accountant" | "sales";
+/**
+ * ERP access follows Cloud Kitchen → Staff (migration 0008): admin → owner, accountant → accountant,
+ * supply_chain → purchasing, sales → cashier, manager / executive → viewer. "sales" is the old ERP invoicing role (unused).
+ */
+export type Role = "owner" | "accountant" | "purchasing" | "cashier" | "viewer" | "sales";
 export type Membership = { companyId: string; companyName: string; role: Role };
 export type AppContext = { userId: string; email: string; membership: Membership | null };
 
@@ -30,11 +34,12 @@ export const getAppContext = cache(async (): Promise<AppContext> => {
   };
 });
 
-/** For pages only accounts staff may open; sales staff go to their invoicing screen. */
+/** Roles that may open the accounting screens. The others' screens (cashier, purchasing, viewer) come in Stage B. */
+export const ACCOUNTS_ROLES: readonly Role[] = ["owner", "accountant"];
+
 export async function requireAccounts(): Promise<AppContext & { membership: Membership }> {
   const ctx = await getAppContext();
-  if (!ctx.membership) redirect("/no-access");
-  if (ctx.membership.role === "sales") redirect("/invoicing");
+  if (!ctx.membership || !ACCOUNTS_ROLES.includes(ctx.membership.role)) redirect("/no-access");
   return ctx as AppContext & { membership: Membership };
 }
 

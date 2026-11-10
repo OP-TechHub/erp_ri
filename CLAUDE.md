@@ -3,6 +3,8 @@
 Web accounts / invoicing app for **Round Island (Pvt) Ltd, Colombo, Sri Lanka** (currency LKR).
 We are rebuilding a working single-file browser app as a proper multi-user web app.
 
+**Round Island = Cloud Kitchen (one business).** The ERP is the **back office** of the Cloud Kitchen app (`C:/Users/yjoff/cloud_kitchen`, schema `cloud_kitchen`, same Supabase project). Cloud Kitchen owns orders, invoices (INV0001 series), items (selling codes `LO_RI-xxxxx`), customers, ingredients, recipes, stock and production; the ERP owns the books, receipts, cheques, cash-up, purchasing after PO approved, expenses and reports. Invoices, customers, items and staff reach the ERP through triggers (`0008_ck_link.sql`). Stages: `docs/BUILD_PLAN.md`. Never touch the HORECA / Retail parts of Cloud Kitchen.
+
 - **Reference implementation (source of truth for behaviour):** `reference/ERP_Accounts_Module_v5.html` – one HTML file, vanilla JS, data in localStorage. Read it before building any feature; match its calculations exactly.
 - **Invoice print format:** `reference/invoice_format_SCAN1209.pdf` (scanned invoice). **Product list + rates:** `reference/product_list.xlsx`.
 - **Full feature list and accounting rules:** `docs/SPEC.md`. **Order of work:** `docs/BUILD_PLAN.md`. **Deploy steps:** `docs/DEPLOY.md`.
@@ -28,7 +30,6 @@ We are rebuilding a working single-file browser app as a proper multi-user web a
 src/app/(auth)/login            sign in
 src/app/(app)/…                 dashboard, sales, purchases, payments, receipts, supplier-payments,
                                 customers, suppliers, statement, outstanding, sales-reports, pl, notes, settings, data
-src/app/(sales)/invoicing       restricted screen for the "sales" role (replaces the old standalone sales sheet)
 src/lib/accounting/             PURE functions (no I/O): pl.ts, notes.ts, setoff.ts, invoice.ts, tax.ts, costing.ts  + *.test.ts
 src/lib/supabase/               server.ts, client.ts, middleware helper
 src/lib/import/                 csv/xlsx importers (sales, purchases, receipts, payments, set-off, products)
@@ -39,14 +40,16 @@ supabase/migrations/            SQL, applied in order. Never edit an applied mig
                                 0004_order_source.sql: order_source on sale invoices (walk_in/call/whatsapp/website/other)
                                 0005_items_costing.sql: item pack/kg prices, line units, ingredients, product_recipes (BOM)
                                 0006_line_price_mode.sql: fixed (item master pack price) or free (typed qty/price) sale lines
+                                0007_ck_roles.sql / 0008_ck_link.sql: Cloud Kitchen link – staff, customers, items, invoices
+                                copied by triggers (errors -> ck_sync_errors, never block CK); ck_backfill(), ck_sync_check
 supabase/seed/                  non-sensitive data scripts (item master, ingredients, recipes) – committed
 ```
 
 ## Non-negotiable rules
 1. **All accounting maths lives in `src/lib/accounting/` as pure, tested functions.** Port each formula from the reference HTML (`compute`, `plColumns`, `openItems`, `settledMap`, `allOpenInvoices`, `autoAllocate`) and write a Vitest test using numbers taken from the reference app. The UI never recomputes totals itself.
 2. **Money is `numeric(14,2)` in the DB and is rounded to 2 dp with half-up rounding in one helper (`money.ts`).** Never use floating-point sums for stored totals; round each line, then sum.
-3. **Security is enforced by RLS, not by the UI.** Every table has `company_id` and a policy. Never use the service-role key in browser code or in a `NEXT_PUBLIC_` variable. Roles: `owner`, `accountant`, `sales` (sales may only create/edit their own *sale* invoices).
-4. **One invoice = one `trade_documents` header + 1..6 `trade_lines`.** The old app stored one row per line; do not copy that shape.
+3. **Security is enforced by RLS, not by the UI.** Every table has `company_id` and a policy. Never use the service-role key in browser code or in a `NEXT_PUBLIC_` variable. Roles follow Cloud Kitchen → Staff (synced by trigger): `owner` (CK admin), `accountant`, `purchasing` (supply chain), `cashier` (sales / front office: receipts, cash-up), `viewer` (manager / executive: reports). `sales` is an old, unused role.
+4. **One invoice = one `trade_documents` header + its `trade_lines`** (no 6-line limit since 0008: CK orders can have more items). The old app stored one row per line; do not copy that shape.
 5. **Every list that the old app showed must tie out:** Customers page balance = Customer Receipts outstanding = Outstanding Report. All three read from the same view/function (`open_documents` / `allOpenInvoices`). Add a test that proves it.
 6. **Never delete accounting data silently.** Deletes ask for confirmation, show what will go (incl. set-offs), and are logged (add an `audit_log` table in the first phase that touches deletes).
 7. Dates are stored as `date` (no time zone). Display `dd/mm/yyyy`; the invoice print uses `dd.mm.yyyy`. Importers read **day-first** by default with a switch for month-first (see `guessMDY` in the reference).

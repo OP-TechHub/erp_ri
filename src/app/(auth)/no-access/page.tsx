@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { UserBox } from "@/components/shell/UserBox";
-import { getAppContext } from "@/lib/auth/session";
+import { ACCOUNTS_ROLES, getAppContext } from "@/lib/auth/session";
 
 export default function NoAccessPage() {
   return (
@@ -18,14 +18,21 @@ export default function NoAccessPage() {
 
 async function Body() {
   const { email, membership } = await getAppContext();
-  if (membership) redirect("/");
+  if (membership && ACCOUNTS_ROLES.includes(membership.role)) redirect("/");
   return (
     <>
-      <p className="text-sm">
-        You are signed in, but this login has not been added to Round Island. Ask the owner to add you under
-        Settings → Members.
-      </p>
-      <UserBox email={email} />
+      {membership ? (
+        <p className="text-sm">
+          Your ERP role is <span className="font-medium capitalize">{membership.role}</span>. The screens for this role
+          are not ready yet.
+        </p>
+      ) : (
+        <p className="text-sm">
+          You are signed in, but this login has no access to Round Island. Access follows Cloud Kitchen → Staff: ask an
+          admin there to approve you with the Cloud Kitchen workspace.
+        </p>
+      )}
+      <UserBox email={email} role={membership?.role} />
     </>
   );
 }
