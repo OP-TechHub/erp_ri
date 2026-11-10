@@ -36,6 +36,7 @@ src/components/                 UI;  src/components/invoice/InvoicePrint.tsx = p
 supabase/migrations/            SQL, applied in order. Never edit an applied migration – add a new one.
                                 0003_hardening.sql: sales-role RLS, set-off/credit-note checks (deferred to commit),
                                 reconcile_document(), next_invoice_no(), audit_log, party_totals / party_credits views
+                                0004_order_source.sql: order_source on sale invoices (walk_in/call/whatsapp/website/other)
 ```
 
 ## Non-negotiable rules

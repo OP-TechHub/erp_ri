@@ -14,7 +14,7 @@ When this document and the reference app disagree, **the reference app wins** �
 | Customers / Suppliers | Master list with phone/email/address/notes and live balance (must equal the outstanding report). |
 | Outstanding Statement | Per-party statement. |
 | Outstanding Report | Open invoices/bills: date, invoice no, amount; filter party, "as at" date; Print/PDF + CSV. Customers and Suppliers. |
-| **Sales Reports** | Filter by invoice type (All, Cash, Credit, Card, Sample, FOC, Not set) and date range. Day-by-day sections with totals, summary by type, per-invoice print icon, Export CSV. **Cash** view: per-day **Attach PDF** (deposit slip, PDF or photo; view / replace / remove). Non-cash views: per-day "PDF slip" (daily sales slip with Prepared by / Checked by lines). |
+| **Sales Reports** | Filter by invoice type (All, Cash, Credit, Card, Sample, FOC, Not set), **order source** (All, Walk-in, Call, WhatsApp, Website, Other, Not set) and date range; summary by source as well as by type. Day-by-day sections with totals, summary by type, per-invoice print icon, Export CSV. **Cash** view: per-day **Attach PDF** (deposit slip, PDF or photo; view / replace / remove). Non-cash views: per-day "PDF slip" (daily sales slip with Prepared by / Checked by lines). |
 | Profit & Loss | Columns **This month / Last month / Accumulated** (financial-year start → end of selected month). Month-wise files (one P&L per month, ZIP of CSVs). |
 | Notes to Accounts | Same three columns. Notes 1-10 (see §2). |
 | Settings | Company name, currency, period, opening/closing stock, turnover-tax rate, income-tax rate (default 30 %), invoice address/bank/terms/logo, categories (7 groups), products (code, name, category group, **rate**; upload file). |
@@ -36,7 +36,7 @@ When this document and the reference app disagree, **the reference app wins** �
 - Auto set-off = oldest first. "Cancel all set-offs" clears allocations only (keeps receipts). A credit note cannot exceed the balance of the document it is against.
 
 ## 3. Sales invoice (the format the user prints)
-- Header: invoice date, **invoice no** (auto next `INV` + zero-padded number, e.g. INV01612; editable; unique per company), customer (type-ahead; unknown name offers to create), **invoice type** (Cash/Credit/Card/Sample/FOC), discount %, VAT & SSCL %, optional customer details lines (contacts/address).
+- Header: invoice date, **invoice no** (auto next `INV` + zero-padded number, e.g. INV01612; editable; unique per company), customer (type-ahead; unknown name offers to create), **invoice type** (Cash/Credit/Card/Sample/FOC), **order source** (Walk-in / Call / WhatsApp / Website / Other – required on new invoices), discount %, VAT & SSCL %, optional customer details lines (contacts/address).
 - **Up to 6 lines:** item (product = sales category), description (defaults to product name), **Qty-KG**, **unit price** (defaults to the product's rate; editable), line total = qty × unit price.
 - Money: `net line = round2(qty × price × (1 − disc%))`, `tax = round2(net × tax%)`; invoice total = Σnet + Σtax. Sub total, discount amount and total bill are shown.
 - Save, or **Save & print**. Reprint any invoice any time. Edit an invoice = edit header + lines (blocked/warned if it has set-offs that would exceed the new total).
@@ -72,6 +72,7 @@ Conversion rules (all listed in the SQL header when they happen):
 
 ## 7. Decisions for the web version (where it differs from, or adds to, the reference)
 - **Invoice numbers:** next number = `INV` + (highest `INVnnnnn` sale number + 1), at least 5 digits – `next_invoice_no()`, exactly like `invNext`. The old plain numbers (…1531) are not counted, so the new series starts at INV00001 (owner's decision, 2026-11-02).
+- **Order source** (added 2026-11-10, not in the reference): how the order came in – Walk-in, Call, WhatsApp, Website or Other (`order_source`, migration 0004). Required on new sale invoices; invoices imported from the old app show "Not set". Independent of the invoice type: a walk-in or WhatsApp order can be Cash, Credit, Card, Sample or FOC.
 - **Edit / delete reconciliation** (`reconcileInvoice`): changing an invoice's party or type moves its set-offs back on account and unlinks its credit notes; lowering its total below what is set off cuts allocations from the newest receipt back, then unlinks the newest notes; a credit note that becomes larger than its invoice's balance is unlinked. Done in the database (`reconcile_document()`, trigger on party/type change); a check at commit refuses anything that would still over-settle a document.
 - **Parties are required** on every sale/purchase document and on receipts/supplier payments; unknown names are created as customers/suppliers (invoice form offers it, importers do it). The reference allowed free-text names.
 - **Renaming** a party or category renames it on all past entries (as in the reference) – done by database triggers.
