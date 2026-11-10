@@ -29,7 +29,7 @@ src/app/(auth)/login            sign in
 src/app/(app)/…                 dashboard, sales, purchases, payments, receipts, supplier-payments,
                                 customers, suppliers, statement, outstanding, sales-reports, pl, notes, settings, data
 src/app/(sales)/invoicing       restricted screen for the "sales" role (replaces the old standalone sales sheet)
-src/lib/accounting/             PURE functions (no I/O): pl.ts, notes.ts, setoff.ts, invoice.ts, tax.ts  + *.test.ts
+src/lib/accounting/             PURE functions (no I/O): pl.ts, notes.ts, setoff.ts, invoice.ts, tax.ts, costing.ts  + *.test.ts
 src/lib/supabase/               server.ts, client.ts, middleware helper
 src/lib/import/                 csv/xlsx importers (sales, purchases, receipts, payments, set-off, products)
 src/components/                 UI;  src/components/invoice/InvoicePrint.tsx = printable invoice (A4)
@@ -37,6 +37,9 @@ supabase/migrations/            SQL, applied in order. Never edit an applied mig
                                 0003_hardening.sql: sales-role RLS, set-off/credit-note checks (deferred to commit),
                                 reconcile_document(), next_invoice_no(), audit_log, party_totals / party_credits views
                                 0004_order_source.sql: order_source on sale invoices (walk_in/call/whatsapp/website/other)
+                                0005_items_costing.sql: item pack/kg prices, line units, ingredients, product_recipes (BOM)
+                                0006_line_price_mode.sql: fixed (item master pack price) or free (typed qty/price) sale lines
+supabase/seed/                  non-sensitive data scripts (item master, ingredients, recipes) – committed
 ```
 
 ## Non-negotiable rules

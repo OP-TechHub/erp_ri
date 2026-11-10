@@ -6,15 +6,17 @@ Finish a phase = lint + typecheck + tests green, then commit.
 
 **Phase 1 – Database & auth.** Apply `supabase/migrations/*`. Login page (email + password), first-run "create company" (calls `create_company`, then `seed_products`). Members page (owner invites users and sets role). Generate DB types. Add `audit_log` table + trigger on delete for documents/payments.
 
-**Phase 2 – Master data.** Settings (company, tax rates, invoice details, logo upload to Storage), categories (7 groups, rename updates history), products with rates + file upload, customers, suppliers.
+**Phase 2 – Master data.** Settings (company, tax rates, invoice details, logo upload to Storage), categories (7 groups, rename updates history), items (code, pack size, pack weight, pack price, per-kg price) + file upload, **ingredients and recipes** (SPEC §8), customers, suppliers.
 
 **Phase 3 – Accounting core (no UI).** `src/lib/accounting/*`: money rounding, invoice maths, open items / settled map / oldest-first credits, auto set-off, P&L columns, notes 1-10, tax overrides. Port from the reference; tests with numbers from the reference app (export a small data set from it and assert identical outputs).
 
-**Phase 4 – Sales invoicing.** Invoice form (6 lines, rates, discount, tax, type, next number), list/search, edit, delete (confirm), **print page A4 per the PDF format**, sales role screen `/invoicing`.
+**Phase 4 – Sales invoicing.** Invoice form (6 lines, each by pack or kg with the matching default price, discount, tax, type, order source, next number), list/search, edit, delete (confirm), **print page A4 per the PDF format**, sales role screen `/invoicing`.
 
-**Phase 5 – Purchases, payments, receipts, set-off.** Entries, receipt/payment forms with set-off grid, auto set-off, supplier payments, credit notes (`against_id`).
+**Phase 5 – Purchases, payments, receipts, set-off.** Entries (purchase lines can name the ingredient, qty and unit – feeds recipe costing), receipt/payment forms with set-off grid, auto set-off, supplier payments, credit notes (`against_id`).
 
 **Phase 6 – Reports.** Dashboard, Outstanding Statement, Outstanding Report, **Sales Reports** (type filter, day sections, Cash → deposit-slip attach via Storage bucket `deposit-slips`, daily slip print), P&L (3 columns + month-wise ZIP), Notes, CSV/print for all.
+
+**Phase 6b – Recipe costing report** (SPEC §8): monthly cost per pack, COGS and gross margin per item from actual invoices and purchases, with Print/CSV.
 
 **Phase 7 – Importers & bulk tools.** All importers in SPEC §5 with preview; delete-by-party-and-amount, delete receipts by date, cancel set-offs.
 
